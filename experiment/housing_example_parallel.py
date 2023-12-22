@@ -27,18 +27,28 @@ from sklearn.model_selection import train_test_split
 barkla_path = '/users/anhichem/sharedscratch/programming'
 local_path = 'C:/Users/anhic/Documents/00-LIVERPOOL_UNI/10-Programming/01-Project'
 
-working_path = barkla_path # To change according to working platform
+working_path = local_path # To change according to working platform
 
 import sys
 sys.path.append(working_path + '/MCDropout_MPI/')
 import bnn_mcdropout
 
+# Disable GPU
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+#==============================================================================
+# MPI
+#==============================================================================
+from mpi4py import MPI
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
 #==============================================================================
 # DATA IMPORTATION AND PROCESSING
 #==============================================================================
-
+os.chdir(working_path + '/MCDropout_MPI/')
 #Importing the dataset
-df = pd.read_csv('../data/Housing.csv')
+df = pd.read_csv('./data/Housing.csv')
 
 target = 'price'
 features = [i for i in df.columns if i not in [target]]
@@ -49,9 +59,7 @@ nf = []; cf = []; nnf = 0; ncf = 0; #numerical & categorical features
 for i in range(df[features].shape[1]):
     if nu.values[i]<=16:cf.append(nu.index[i])
     else: nf.append(nu.index[i])
-
-print('\n\033[1mInference:\033[0m The Datset has {} numerical & {} categorical features.'.format(len(nf),len(cf)))
-
+    
 #Check for empty elements
 nvc = pd.DataFrame(df.isnull().sum().sort_values(), columns=['Total Null Values'])
 nvc['Percentage'] = round(nvc['Total Null Values']/df.shape[0],3)*100
@@ -66,14 +74,9 @@ dm=True
 for i in fcc:
     #print(i)
     if df_num[i].nunique()==2:
-        if oh==True: print("\033[1mOne-Hot Encoding on features:\033[0m")
-        print(i);oh=False
         df_num[i]=pd.get_dummies(df_num[i], drop_first=True, prefix=str(i))
     if (df_num[i].nunique()>2 and df_num[i].nunique()<17):
-        if dm==True: print("\n\033[1mDummy Encoding on features:\033[0m")
-        print(i);dm=False
         df_num = pd.concat([df_num.drop([i], axis=1), pd.DataFrame(pd.get_dummies(df_num[i], drop_first=True, prefix=str(i)))],axis=1)
-# df_num = df_num.astype('float64')
 
 #Splitting the data intro training & testing sets
 X = df_num.drop([target],axis=1)
@@ -82,13 +85,14 @@ X_train_full, X_valid, y_train_full, y_valid = train_test_split(X, Y, train_size
 X_train, X_test, y_train, y_test = train_test_split(X, Y, train_size=0.875, test_size=0.125, random_state=123)
 X_train, y_train, X_valid, y_valid, X_test, y_test = X_train.values, y_train.values.reshape(-1,1), X_valid.values, y_valid.values.reshape(-1,1), X_test.values, y_test.values.reshape(-1,1)
 
-print('Original set  ---> ',X.shape,Y.shape,
-      '\nTraining set  ---> ',X_train.shape,y_train.shape,
-      '\nValidation set  ---> ',X_valid.shape,y_valid.shape,
-      '\nTesting set   ---> ', X_test.shape,'', y_test.shape)
+# if rank == 0:
+#     print('Original set  ---> ',X.shape,Y.shape,
+#         '\nTraining set  ---> ',X_train.shape,y_train.shape,
+#         '\nValidation set  ---> ',X_valid.shape,y_valid.shape,
+#         '\nTesting set   ---> ', X_test.shape,'', y_test.shape)
 
 #==============================================================================
-# TRAIN BNN
+# LOAD BNN
 #==============================================================================
 
 # Train model
@@ -97,37 +101,46 @@ model_test = bnn_mcdropout.BNN_MCDropout(X_train = X_train, y_train = y_train, n
                                          hidden_layers = [512, 512, 512],
                                          dropout = 0.05, reg_length= 1.0, tau = 1.0,
                                          loss_fct = 'mean_squared_error')
-print(model_test.model.summary())
 
-history = model_test.fit(n_epochs = 1000)
+if rank == 0:
+    print(model_test.model.summary())
+
+model_test.load(working_path+'/MCDropout_MPI/data/model_housing.h5')
+
+# # Uncomment below for quick comparison with 1000 samples
+# start_time = time.time()
+# mean_temp, std_temp = model_test.predict_parallel(X_test, comm, rank, size, n_mc_samples = 1000)
+# pred_time_parallel_temp = time.time() - start_time
+# if rank == 0:
+#     print(mean_temp, pred_time_parallel_temp)
+# if rank == 0:
+#     start_time = time.time()
+#     mean_temp, std_temp = model_test.predict(X_test, n_mc_samples = 1000)
+#     pred_time_temp = time.time() - start_time
+#     print(mean_temp, pred_time_temp)
 
 #==============================================================================
 # PREDICTION TIME STUDY ON TEST SET
 #==============================================================================
 
-def pred_time_study(model, X, test_list):
+# Comment below not to run comparison with various number of samples
+mc_samples = [10, 30, 60, 100, 300, 600, 1000, 3000, 6000, 10000]
+if rank == 0:
     pred_time_serial, pred_time_parallel = [], []
-    for n in test_list:
+for n in mc_samples:
+    if rank == 0:
         start_time = time.time()
-        mean_temp, std_temp = model.predict(X, n_mc_samples = n)
+        mean_temp, std_temp = model_test.predict(X_test, n_mc_samples = n)
         pred_time_serial_temp = time.time() - start_time
         pred_time_serial.append(pred_time_serial_temp)
-        
-        start_time = time.time()
-        mean_temp, std_temp = model.predict_parallel(X, n_mc_samples = n)
-        pred_time_parallel_temp = time.time() - start_time
+
+     
+    start_time = time.time()
+    mean_temp, std_temp = model_test.predict_parallel(X_test, comm, rank, size, n_mc_samples = n)
+    pred_time_parallel_temp = time.time() - start_time
+    if rank == 0:  
         pred_time_parallel.append(pred_time_parallel_temp)
-    return pred_time_serial, pred_time_parallel
+if rank == 0:
+    df_pred_time = pd.DataFrame({'mc_samples':mc_samples, 'pred_time_serial': pred_time_serial, 'pred_time_parallel': pred_time_parallel} )
+    df_pred_time.to_csv(working_path + '/MCDropout_MPI/results/prediction_time_study_n{}.csv'.format(size), index=False)
 
-mc_samples = [1, 3, 6, 10, 30, 60, 100, 300, 600, 1000, 3000, 6000, 10000]
-pred_time_serial, pred_time_parallel = pred_time_study(model_test, X_test, mc_samples)
-
-fig, ax = plt.subplots(figsize=(8,6), constrained_layout=True)
-plt.plot(mc_samples, pred_time_serial, color='blue', marker='o')
-plt.plot(mc_samples, pred_time_parallel, color='red', marker='o')
-plt.xscale('log')
-plt.xlabel(r'Monte Carlo samples $T$ [-]', fontsize=23)
-plt.ylabel(r'Prediction time [s]', fontsize=23)
-plt.legend(['Serial','Parallel'])
-plt.grid(visible = True, linestyle = '--')
-plt.savefig(working_path + '/MCDropout_MPI/results/prediction_time_study.png')

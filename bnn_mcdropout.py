@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Classes for training Bayesian neural networks with Monte-Carlo Dropout.
+Class for training Bayesian neural networks with Monte-Carlo Dropout.
 
 Mehdi Anhichem (based on Yarin Gal (2015)).
 University of Liverpool
@@ -51,13 +51,13 @@ class BNN_MCDropout:
             X_valid:        matrix array of the shape (N,D) made of
                             validation points.
             y_valid:        array of the shape (N,1) made of target validation points.
-            n_hidden:       list of number of neurons for each hidden layer. Its length is therefore the
+            hidden_layers:  list of number of neurons for each hidden layer. Its length is therefore the
                             number of hidden layers.
-            n_epochs:       number of epochs to train the model.
-            learning_rate:  learning rate of the Adam optimiser.
             dropout:        dropout rate for all the dropout layers in the network.
             reg_length:     lengthscale used for regularisation.
             tau:            tau value used for regularisation.
+            lr:             learning rate of the Adam optimiser.
+            loss_fct:       loss function used to optimise the NN parameters.
         '''
         self.name = name
         self.normalisation = normalisation
@@ -121,6 +121,18 @@ class BNN_MCDropout:
         self.batch_size = batch_size
         return self.model.fit(self.X_train, self.y_train, epochs = n_epochs, batch_size = self.batch_size, validation_data = (self.X_valid, self.y_valid))
     
+    def load(self, saved_model, batch_size = 128):
+        ''' 
+        Function for loading a Bayesian Dropout Neural Network model.
+        '''
+        ''' Inputs:
+            saved_model:     file of the saved BNN model.
+            batch_size:     number of samples per batch. 
+        '''
+        self.model = keras.models.load_model(saved_model)
+        self.batch_size = batch_size
+    
+    
     def predict(self, X_test, n_mc_samples = 100):
         ''' 
         Function for making predictions with the Bayesian Dropout Neural Network model.
@@ -143,25 +155,21 @@ class BNN_MCDropout:
         MC_std = np.std(Yt_hat, axis = 0)
         
         return (MC_mean, MC_std)
-    
 
-
-    def predict_parallel(self, X_test, n_mc_samples=100):
+    def predict_parallel(self, X_test, comm, rank, size, n_mc_samples=100):
         ''' 
         Function for making predictions with the Bayesian Dropout Neural Network model.
-        Uses parallel implementation based on MPI.
+        Uses parallel implementation based on MPI. The number of samples to predict is distributed
+        evenly on the requested processors.
         '''
         ''' Inputs:
             X_test:         matrix array of the shape (N,D) made of
                             testing points.
+            comm:           MPI communicator.
+            rank:           rank of the current MPI process.
+            size:           total number of MPI processes.
             n_mc_samples:   number of Monte Carlo estimate.
-        '''
-        from mpi4py import MPI
-        
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-        
+        '''        
         # Normalisation
         if self.normalisation:
             X_test = (X_test - np.full(X_test.shape, self.X_train_mean)) / np.full(X_test.shape, self.X_train_std)
@@ -169,10 +177,9 @@ class BNN_MCDropout:
         # MC Dropout
         model = self.model
         local_samples = n_mc_samples // size
-        # Scatter the number of samples to each process
-        local_samples = comm.scatter([local_samples] * size, root=0)
         # Perform local predictions
         local_predictions = [model.predict(X_test, batch_size=self.batch_size, verbose=0) for _ in range(local_samples)]
+        # print(rank, len(local_predictions))
         # Gather all predictions to rank 0
         all_predictions = comm.gather(local_predictions, root=0)
         if rank == 0:
@@ -184,4 +191,4 @@ class BNN_MCDropout:
             MC_std = np.std(Yt_hat, axis=0)
             return MC_mean, MC_std
         else:
-            return None
+            return None, None

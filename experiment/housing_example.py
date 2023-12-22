@@ -21,7 +21,22 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
+# Plotting options
+plt.rcParams["font.size"] = "20"
+plt.rc('text', usetex=True)
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams["mathtext.fontset"] = 'cm'
+plt.rcParams['hatch.linewidth'] = 1.0
+plt.rcParams["legend.frameon"] = 'True'
+plt.rcParams["legend.fancybox"] = 'True'
+plt.rcParams["figure.autolayout"] = 'True'
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+plt.rcParams['xtick.top'] = True
+plt.rcParams['ytick.right'] = True
+plt.rcParams['pdf.fonttype'] = 42
 
+# Split options
 from sklearn.model_selection import train_test_split
 
 # Folder locations
@@ -37,9 +52,9 @@ import bnn_mcdropout
 #==============================================================================
 # DATA IMPORTATION AND PROCESSING
 #==============================================================================
-
+os.chdir(working_path + '/MCDropout_MPI/')
 #Importing the dataset
-df = pd.read_csv('../data/Housing.csv')
+df = pd.read_csv('./data/Housing.csv')
 
 target = 'price'
 features = [i for i in df.columns if i not in [target]]
@@ -102,16 +117,13 @@ print(model_test.model.summary())
 
 history = model_test.fit(n_epochs = 1000)
 
-# Visualise history
-pd.DataFrame(history.history).plot(figsize=(8,5))
-plt.xlabel('Epochs')
-plt.ylabel('MSE')
-plt.grid(visible = True, linestyle = '--')
-plt.show()
+# Save model
+model_test.model.save(working_path+'/MCDropout_MPI/data/model_housing.h5')
 
 #==============================================================================
 # TEST CONVERGENCE W.R.T MC SAMPLES
 #==============================================================================
+# This section study the convergence of the BNN estimate depending on the number of MC samples
 
 def test_cv(model, X, test_list):
     mean_cv_list, std_cv_list, pred_cv_time = [], [], []
@@ -132,8 +144,9 @@ plt.plot(mc_samples, mean_conv, color='green', marker='o')
 plt.axhline(y = 1.01*mean_conv[-1], color = 'k', linestyle = '--')
 plt.axhline(y = 0.99*mean_conv[-1], color = 'k', linestyle = '--')
 plt.xscale('log')
-plt.xlabel(r'Monte Carlo samples $T$ [-]', fontsize=23)
+plt.xlabel(r'Monte Carlo samples [-]', fontsize=23)
 plt.ylabel(r'Mean estimate ($\mu_{MCD}$) [-]', fontsize=23)
+plt.legend(['Monte Carlo estimate', '$\pm$ 1\% of value with 10,000 samples'], loc = 4)
 plt.grid(visible = True, linestyle = '--')
 plt.show()
 
@@ -142,23 +155,17 @@ plt.plot(mc_samples, std_conv, color='green', marker='o')
 plt.axhline(y = 1.01*std_conv[-1], color = 'k', linestyle = '--')
 plt.axhline(y = 0.99*std_conv[-1], color = 'k', linestyle = '--')
 plt.xscale('log')
-plt.xlabel(r'Monte Carlo samples $T$ [-]', fontsize=23)
+plt.xlabel(r'Monte Carlo samples [-]', fontsize=23)
 plt.ylabel('Standard deviation estimate ($\sigma_{MCD}) [-]$', fontsize=23)
-plt.legend(['Monte Carlo estimate', '$\pm$ 5\% of value with 10,000 samples'], loc = 4)
-plt.grid(visible = True, linestyle = '--')
-plt.show()  
-
-fig, ax = plt.subplots(figsize=(8,6), constrained_layout=True)
-plt.plot(mc_samples, time_conv, color='blue', marker='o')
-plt.xscale('log')
-plt.xlabel(r'Monte Carlo samples $T$ [-]', fontsize=23)
-plt.ylabel(r'Prediction time [s]', fontsize=23)
+plt.legend(['Monte Carlo estimate', '$\pm$ 1\% of value with 10,000 samples'], loc = 4)
 plt.grid(visible = True, linestyle = '--')
 plt.show()  
 
 #==============================================================================
-# PREDICTION ON TEST SET
+# MSE PREDICTION ON TEST SET
 #==============================================================================
+# Compute model's MSE on test set
+
 start_time = time.time()
 mean_test, std_test = model_test.predict(X_test, n_mc_samples = 1000)
 pred_time = time.time() - start_time
