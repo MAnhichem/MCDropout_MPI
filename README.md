@@ -21,6 +21,10 @@ $$ \sigma_{\text{MCD}}^2(\mathbf{x}) \approx \frac{1}{T-1}\sum_{t=1}^{T} \bigl(\
 
 The two figures below illustrate the convergence of $\mu_{\text{MCD}}$ and $\sigma_{\text{MCD}}$ predicted by this BNN as the number of Monte Carlo samples increases. Both values are computed based on the validation set. Notably, the convergence is evident, with both parameters stabilizing within a 1% range of $\mu_{\text{MCD}}$ after approximately X samples.
 
+![Mean convergence](https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/mean_cv.png)
+
+![Std convergence](https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/std_cv.png)
+
 ## MPI
 
 Explain briefly what is done and show the results.
