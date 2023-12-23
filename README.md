@@ -19,7 +19,7 @@ $$ \mu_{\text{MCD}}(\mathbf{x}) \approx \frac{1}{T}\sum_{t=1}^{T} \hat{y}(\mathb
 
 $$ \sigma_{\text{MCD}}^2(\mathbf{x}) \approx \frac{1}{T-1}\sum_{t=1}^{T} \bigl(\mu_{\text{MCD}}-\hat{y}(\mathbf{x};\boldsymbol{\theta}_t)\bigl)^2 $$
 
-The two figures below illustrate the convergence of $\mu_{\text{MCD}}$ (left) and $\sigma_{\text{MCD}}$ (right) predicted by this BNN as the number of Monte Carlo samples increases. Both values are computed on the test set. Notably, the convergence is evident, with both parameters stabilizing within a 1% range of $\mu_{\text{MCD}}$ after approximately 1,000 samples.
+The two figures below illustrate the convergence of $\mu_{\text{MCD}}$ (left) and $\sigma_{\text{MCD}}$ (right) predicted by this BNN as the number of Monte Carlo samples increases. Both values are computed on the test set. Notably, the convergence is evident, with both parameters stabilising within a 1% range of $\mu_{\text{MCD}}$ after approximately 1,000 samples.
 
 <img src="https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/mean_cv.png" alt="Mean CV" width="500px"> <img src="https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/std_cv.png" alt="Std CV" width="500px">
 
