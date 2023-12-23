@@ -19,11 +19,14 @@ $$ \mu_{\text{MCD}}(\mathbf{x}) \approx \frac{1}{T}\sum_{t=1}^{T} \hat{y}(\mathb
 
 $$ \sigma_{\text{MCD}}^2(\mathbf{x}) \approx \frac{1}{T-1}\sum_{t=1}^{T} \bigl(\mu_{\text{MCD}}-\hat{y}(\mathbf{x};\boldsymbol{\theta}_t)\bigl)^2 $$
 
-The two figures below illustrate the convergence of $\mu_{\text{MCD}}$ and $\sigma_{\text{MCD}}$ predicted by this BNN as the number of Monte Carlo samples increases. Both values are computed on the test set. Notably, the convergence is evident, with both parameters stabilizing within a 1% range of $\mu_{\text{MCD}}$ after approximately 1,000 samples.
+The two figures below illustrate the convergence of $\mu_{\text{MCD}}$ (left) and $\sigma_{\text{MCD}}$ (right) predicted by this BNN as the number of Monte Carlo samples increases. Both values are computed on the test set. Notably, the convergence is evident, with both parameters stabilizing within a 1% range of $\mu_{\text{MCD}}$ after approximately 1,000 samples.
 
 <img src="https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/mean_cv.png" alt="Mean CV" width="500px"> <img src="https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/std_cv.png" alt="Std CV" width="500px">
 
+## Parallel predictions
 
-## MPI
+If these two figures highlight the necessity for a specific quantity of samples, it has been observed that the prediction step can be relatively time-consuming computationally. In this repository, MPI routines have been employed to parallelise the prediction task. When requesting a certain number of samples, these are evenly distributed among the different cores. The subsequent two figures depict the prediction time (left) and the speed-up (right), i.e. the parallel prediction time ratio over the serial prediction time, for various numbers of cores and requested sample numbers.
 
-Explain briefly what is done and show the results.
+<img src="https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/prediction_time_study.png" alt="Time study" width="500px"> <img src="https://github.com/MAnhichem/MCDropout_MPI/blob/main/results/speedup_study.png" alt="Speedup study" width="500px">
+
+
